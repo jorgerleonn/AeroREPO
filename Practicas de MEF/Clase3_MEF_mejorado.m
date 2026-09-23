@@ -5,7 +5,7 @@ clear; clc; close all;
 L = 1;              % Longitud característica de la estructura [m]
 E = 1;              % Módulo de elasticidad del material [Pa]
 A = 1;              % Área de la sección transversal de las barras [m^2]
-P = 0.25;          % Carga externa aplicada [N]
+P = 0.1;          % Carga externa aplicada [N]
 gamma = -pi/4;       % Ángulo de aplicación de la carga [rad]
 
 
@@ -168,7 +168,7 @@ for i = 1:n_elementos
 end
 
 %% 8. Representación Gráfica
-figure('Name', 'Estructura Original vs Deformada', 'Color', 'w');
+figure('Name', 'Clase 3 - Estructura Original vs Deformada', 'Color', 'w');
 hold on; grid on; axis equal;
 
 % Dibujar estructura original (Negro)
@@ -185,7 +185,7 @@ for i = 1:n_elementos
     plot([c_nod_def(na, 1), c_nod_def(nb, 1)], [c_nod_def(na, 2), c_nod_def(nb, 2)], 'r-*', 'LineWidth', 1.5);
 end
 
-title('Deformación de la Estructura');
+title('Clase 3 - Deformación de la Estructura');
 xlabel('Posición X [m]');
 ylabel('Posición Y [m]');
 legend('Original', 'Deformada', 'Location', 'best');

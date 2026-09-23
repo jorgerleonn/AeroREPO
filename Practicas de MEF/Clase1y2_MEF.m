@@ -137,7 +137,7 @@ for i = 1:n_elementos
     plot([c_nod_def(na, 1), c_nod_def(nb, 1)], [c_nod_def(na, 2), c_nod_def(nb, 2)], 'r-*', 'LineWidth', 1.5);
 end
 
-title('Deformación de la Estructura');
+title('Clase 1 y 2 - Deformación de la Estructura');
 xlabel('Posición X [m]');
 ylabel('Posición Y [m]');
 legend('Original', 'Deformada', 'Location', 'best');
