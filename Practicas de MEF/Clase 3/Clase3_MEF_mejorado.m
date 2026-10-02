@@ -17,7 +17,8 @@ n3 = [0, -L];
 n4 = [L, 0];
 n5 = [L/2, L/2];  % Nodo adicional
 
-c_nod = [n1; n2; n3; n4; n5];           % Matriz de coordenadas globales
+c_nod = [n1; n2; n3; n4; n5];  % Matriz de coordenadas globales
+nnod = size(c_nod, 1);  % Número de nodos
 conectividad_n = [1 5; 2 4; 3 4; 5 4];   % Definición de barras: [nodo_inicial, nodo_final]
 n_elementos = size(conectividad_n, 1); % Número de elementos barra
 gdlxnod = 2; % Grados de libertad por nodo (2D)
@@ -32,11 +33,6 @@ F(gdl_P(1)) = P * cos(gamma);  % Componente X de la fuerza
 F(gdl_P(2)) = P * sin(gamma);  % Componente Y de la fuerza
 
 %% 4. Matrices Elementales
-% Matriz de rigidez local estándar para un elemento tipo barra (cercha 2D)
-M_elemento = [ 1  0 -1  0;
-               0  0  0  0;
-              -1  0  1  0;
-               0  0  0  0];
 
 % Inicialización de matrices globales y variables de almacenamiento
 K = zeros(n_grados_libertad);   % Matriz de rigidez global
@@ -48,40 +44,29 @@ L_barras = zeros(n_elementos, 1);  % Para almacenar las longitudes de cada barra
 c = zeros(n_elementos, 1); % Cosenos directores
 s = zeros(n_elementos, 1); % Senos directores
 Re = cell(n_elementos, 1); % Matrices de rotación nodal
+conectividad_g = zeros(n_elementos, 4); % Matriz de conectividad por grados de libertad
 
-for i = 1:n_elementos
-    na = conectividad_n(i, 1);
-    nb = conectividad_n(i, 2);
-    nodo_a = c_nod(na, :);
-    nodo_b = c_nod(nb, :);
-    
-    % Longitud de la barra
-    Lei = norm(nodo_b - nodo_a);
-    L_barras(i) = Lei; 
-    
-    % Cosenos directores
-    c(i) = (nodo_b(1) - nodo_a(1)) / Lei;
-    s(i) = (nodo_b(2) - nodo_a(2)) / Lei;
-    
-    % Matriz de rotación nodal y elemental
-    Re{i} = [c(i), s(i); 
-          -s(i), c(i)];
-    Te = [Re{i}, zeros(2); 
-          zeros(2), Re{i}];
-    
-    % Guardamos la matriz de rotación para usarla luego en las tensiones
-    T_matrices{i} = Te;
-    
-    % Rigidez elemental en ejes locales y globales
-    Ke_local = ((A * E) / Lei) * M_elemento;
-    Ke_global = Te' * Ke_local * Te;
-    
-    % Grados de libertad globales de la barra actual
-    gdl_i = [2*na-1, 2*na, 2*nb-1, 2*nb];
-    
-    % Ensamblaje en la matriz global
-    K(gdl_i, gdl_i) = K(gdl_i, gdl_i) + Ke_global;
-end
+    for i = 1:n_elementos
+        nodos_i = conectividad_n(i, :); % Nodos de la barra i
+        na = nodos_i(1); % Nodo inicial de la barra
+        nb = nodos_i(2); % Nodo final de la barra
+        nodo_a = c_nod(na, :); % Coordenadas del nodo inicial
+        nodo_b = c_nod(nb, :); % Coordenadas del nodo final
+        
+        % Grados de libertad globales de la barra actual
+        gdl_i = [2*na-1, 2*na, 2*nb-1, 2*nb];
+        conectividad_g(i, :) = gdl_i;
+        
+        % Ensamblaje en la matriz global
+        [K_e, Te, Le, C_i, S_i] = rigidez_ele_axil(nodo_a, nodo_b, A, E);
+        c(i) = C_i; % Guardamos el coseno director
+        s(i) = S_i; % Guardamos el seno director
+        T_matrices{i} = Te; % Guardamos la matriz de rotación
+        L_barras(i) = Le; % Guardamos la longitud de la barra
+
+        K(gdl_i, gdl_i) = K(gdl_i, gdl_i) + K_e;
+    end
+
 
 %% 6. Resolución del Sistema (desplazamientos)
 gdl_libres = [7, 8, 9, 10];  % Grados de libertad libres (nodos 4 y 5)
@@ -125,6 +110,10 @@ else
     % Cálculo de desplazamientos, vector de desplazamientos locales (F = K*u -> u = K\F)
     u_l = K_LL \ F(gdl_libres);
 
+    % Cálculo de Reacciones en los grados de libertad restringidos
+    gdl_restringidos = setdiff(1:n_grados_libertad, gdl_libres); % Grados de libertad restringidos
+    R = K(gdl_restringidos, gdl_libres) * u_l; % Reacciones en los grados de libertad restringidos
+
     % Reconstrucción del vector de desplazamientos global completo
     u_global = zeros(n_grados_libertad, 1);
     u_global(gdl_libres) = u_l;
@@ -167,7 +156,21 @@ for i = 1:n_elementos
     fprintf('Barra %d: %8.4f Pa\n', i, tensiones_barras(i));
 end
 
-%% 8. Representación Gráfica
+%% 8. Modos de deformación y energía de deformación (problema de autovalores de K_LL)
+
+[autovecs, autovalores] = eig(K_LL);
+[autovalores, orden] = sort(diag(autovalores)); % Ordenamos los autovalores
+
+n_modos = length(autovalores); % Número de modos
+autovectores = zeros(length(gdl_libres), n_modos); % Inicializamos la matriz de autovectores
+PIint_e = zeros(1, n_modos); % Inicializamos el vector de energía de deformación interna por modo
+
+for i = 1:n_modos
+    autovectores(:, i) = autovecs(:, orden(i)); % Reordenamos los autovectores según los autovalores
+    PIint_e(i) = 0.5 * autovectores(:, i)' * K_LL * autovectores(:, i); % Energía de deformación interna por modo
+end
+
+%% 9. Representación Gráfica
 figure('Name', 'Clase 3 - Estructura Original vs Deformada', 'Color', 'w');
 hold on; grid on; axis equal;
 
@@ -175,14 +178,18 @@ hold on; grid on; axis equal;
 for i = 1:n_elementos
     na = conectividad_n(i, 1);
     nb = conectividad_n(i, 2);
-    plot([c_nod(na, 1), c_nod(nb, 1)], [c_nod(na, 2), c_nod(nb, 2)], 'k-o', 'LineWidth', 1.5);
+    c_X = [c_nod(na, 1), c_nod(nb, 1)];
+    c_Y = [c_nod(na, 2), c_nod(nb, 2)];
+    plot(c_X, c_Y, 'k-o', 'LineWidth', 1.5);
 end
 
 % Dibujar estructura deformada (Rojo)
 for i = 1:n_elementos
     na = conectividad_n(i, 1);
     nb = conectividad_n(i, 2);
-    plot([c_nod_def(na, 1), c_nod_def(nb, 1)], [c_nod_def(na, 2), c_nod_def(nb, 2)], 'r-*', 'LineWidth', 1.5);
+    c_X_def = [c_nod_def(na, 1), c_nod_def(nb, 1)];
+    c_Y_def = [c_nod_def(na, 2), c_nod_def(nb, 2)];
+    plot(c_X_def, c_Y_def, 'r-*', 'LineWidth', 1.5);
 end
 
 title('Clase 3 - Deformación de la Estructura');
@@ -190,3 +197,72 @@ xlabel('Posición X [m]');
 ylabel('Posición Y [m]');
 legend('Original', 'Deformada', 'Location', 'best');
 hold off;
+
+% Dibujar la matriz de ocupación de K
+figure(2);
+verK = zeros(n_grados_libertad);
+for i=1:size(K,1)
+    for j=1:size(K,1)
+        if abs(K(i,j)) > 1e-12
+            verK(i,j) = 1;
+        else
+            verK(i,j) = 0;
+        end
+    end
+end
+imagesc(verK);
+colormap(flipud(gray));
+title('Ocupación de K','Fontsize',10);
+xlabel('Grados de libertad','Fontsize',10);
+ylabel('Grados de libertad','Fontsize',10);
+
+% Representación de los modos de deformación y de sólido rígido
+figure('Name','Modos de deformación de K_LL','Color','w');
+mm = ceil(sqrt(n_modos));
+
+for n = 1:n_modos
+    U_eig = zeros(n_grados_libertad,1);              % vector global vacío
+    U_eig(gdl_libres) = real(autovectores(:,n));     % coloco los GDL libres
+    escala_eig = 0.1*L / max(abs(U_eig));            % escala automática
+
+    subplot(mm, mm, n); hold on; grid on; axis equal;
+    for e = 1:n_elementos
+        gdle    = conectividad_g(e,:);
+        nodos_e = conectividad_n(e,:);
+
+        cx_n = [c_nod(nodos_e(1),1), c_nod(nodos_e(2),1)];
+        cy_n = [c_nod(nodos_e(1),2), c_nod(nodos_e(2),2)];
+        plot(cx_n, cy_n, 'ko-','LineWidth',1);       % modo sin deformar
+
+        ue  = real(U_eig(gdle));                     % 4 desplazamientos del elemento
+        uex = ue([1 3])';                            % ¡transponer a fila!
+        uey = ue([2 4])';
+        plot(cx_n + escala_eig*uex, cy_n + escala_eig*uey, 'ro--','LineWidth',1);
+    end
+    title(sprintf('Modo %d | autovalor = %.3e | energía = %.3e', ...
+                  n, autovalores(n), PIint_e(n)));
+    xlabel('X [m]'); ylabel('Y [m]');
+end
+
+
+%% FUNCIONES
+
+function [K_e, Te, Le, C, S] = rigidez_ele_axil(n1, n2, A, E)
+
+    M_elemento = [ 1  0 -1  0;
+               0  0  0  0;
+              -1  0  1  0;
+               0  0  0  0];
+
+    deltax_e = n2(1) - n1(1);
+    deltay_e = n2(2) - n1(2);
+    Le = sqrt(deltax_e^2 + deltay_e^2);
+
+    C = deltax_e/Le;
+    S = deltay_e/Le;
+    Re = [C S; -S C];
+    Te = [Re zeros(2); zeros(2) Re];
+    
+    Ke = A*E/Le * M_elemento;
+    K_e = Te'*Ke*Te;
+end
