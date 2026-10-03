@@ -74,9 +74,7 @@ for i = 1:n_elementos
     K(gdl_i, gdl_i) = K(gdl_i, gdl_i) + K_e; % Ensamblaje de la matriz de rigidez global
     K_ele(:,:,i) = K_e; % Guardar matriz de rigidez del elemento i
 
-    fneq_i = Te_i'*fneq; % Vector de fuerzas nodales equivalentes globales del elemento i
-    Fneq(gdl_i) = Fneq(gdl_i) + fneq_i;
-
+    Fneq(gdl_i) = Fneq(gdl_i) + Te_i'*fneq;
 end
 
 Fn = zeros(n_grados_libertad, 1); % Vector de fuerzas nodales equivalentes globales
