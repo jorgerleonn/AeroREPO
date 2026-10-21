@@ -1,4 +1,4 @@
-function [Kea] = rigidez_axil_e33n_26(Le, A_x, E, GL)
+function [Kea] = rigidez_axil_e23n_26(Le, A_x, E, GL)
 % RIGIDEZ_AXIL_E33N_26 Matriz de rigidez axil elemental (2 o 3 nodos)
 %
 % Sintaxis:

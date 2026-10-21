@@ -45,7 +45,7 @@ c_nod = [n1; n2; n3; n4; n5; n6; n7; n8; n9; n10; n11; n12; n13; n14; n15; n16; 
 nnod = size(c_nod, 1); % número de nodos de la estructura
 
 % Elementos y conectividad por nodos
-conectividad_n = [1 2; 2 3; 3 4; 4 5; 5 6; 6 7; 7 8; 8 9; 7 13; 13 14; 9 10; 10 11; 11 12; 14 15; 15 16; 16 17]; % array de conectividad de los nodos
+conectividad_n = [1 2; 2 3; 3 4; 4 5; 5 6; 6 7; 7 8; 8 9; 13 7; 14 13; 10 9; 11 10; 12 11; 15 14; 16 15; 17 16]; % array de conectividad de los nodos (ejes locales x segun la figura: travesano en +Y y ramas verticales hacia arriba)
 n_elementos = size(conectividad_n, 1); % número de elementos de la estructura
 
 gdlxnod = 6; % Grados de libertad por nodo (3D)
@@ -115,8 +115,8 @@ for e = 1:n_elementos
     if ismember(e, [4 5 6])
         qA = 0; qB = 0;
     else
-        qA = q0x * c_nod(nA,3)/L;
-        qB = q0x * c_nod(nB,3)/L;
+        qA = q0x * c_nod(nA,3)/L; % q0x*z/L en el nodo 1 del elemento
+        qB = q0x * c_nod(nB,3)/L; % q0x*z/L en el nodo 2 del elemento
     end
     wA = [qA; 0; 0]; % carga por unidad de longitud (global) en nodo 1
     wB = [qB; 0; 0]; % carga por unidad de longitud (global) en nodo 2
@@ -135,7 +135,7 @@ Fn(6*(8-1) + 3)  = -P1; % w (Z) del nodo 8
 Fn(6*(13-1) + 3) = -P2; % w (Z) del nodo 13
 F_total = Fn + Fneq; % Vector de fuerzas nodales equivalentes globales total (distribuidas + puntuales)
 
-Fneq_quest = Fneq; % solo distribuidas
+Fneq_quest = F_total; % vector de fuerzas nodales equivalentes (distribuidas + puntuales P1 y P2)
 
 %% 5. imposición de las condiciones de contorno
 U_quest = zeros(n_grados_libertad, 1); % Vector de desplazamientos nodales globales
@@ -174,9 +174,8 @@ end
 
 % 6.2 fuerzas de reacción en SPCs
 F_int = K_quest * U_quest; % Fuerzas internas globales de la estructura
-FR1_quest  = F_int(1:6)    - F_total(1:6);    % Reacciones en el apoyo 1 (nodo 1)
-FR2_quest  = F_int(97:102) - F_total(97:102); % Reacciones en el apoyo 2 (nodo 17)
-FR12_quest = F_int(67:72)  - F_total(67:72);  % Reacciones en el apoyo n12 (auxiliar)
+FR1_quest = F_int(1:6);    % Reacciones en el apoyo 1 (nodo 1)
+FR2_quest = F_int(97:102); % Reacciones en el apoyo 2 (nodo 17)
 
 % 6.4 fuerzas en el elemento en coordenadas locales
 F_ele = zeros(12, n_elementos); % Fuerzas nodales de cada elemento en ejes globales
@@ -188,13 +187,13 @@ for e = 1:n_elementos
     Fe_loc(:, e) = Te(:,:,e) * F_ele(:, e); % Fuerzas nodales del elemento en ejes locales
 end
 
-% Fuerzas internas locales de los elementos como vectores fila
-Fe1_quest = Fe_loc(:, 1);  % columna [12x1]
-Fe4_quest = Fe_loc(:, 4);  % columna [12x1]
-Fe16_quest = Fe_loc(:, 16); % columna [12x1]
+% Fuerzas internas locales de los elementos (columna [12x1])
+Fe1_quest = Fe_loc(:, 1);
+Fe4_quest = Fe_loc(:, 4);
+Fe16_quest = Fe_loc(:, 16);
 
-% Momento interno de torsión del elemento 10 (GDL local x, θx, nodo 2)
-Mt10_quest = Fe_loc(10, 10);
+% Momento interno de torsión del elemento 10 (GDL local x, θx, nodo 1)
+Mt10_quest = Fe_loc(4, 10);
 
 %% 7. representaciones gráficas
 % 7.1 Representación gráfica de la estructura sin deformar y deformada

@@ -134,7 +134,7 @@ Fn(6*(8-1) + 3)  = -P1; % w (Z) del nodo 8
 Fn(6*(13-1) + 3) = -P2; % w (Z) del nodo 13
 F_total = Fn + Fneq; % Vector de fuerzas nodales equivalentes globales total (distribuidas + puntuales)
 
-Fneq_quest = F_total; % fuerzas nodales equivalentes de la estructura (distribuidas + puntuales P1 y P2)
+Fneq_quest = Fneq; % vector de fuerzas nodales equivalentes (solo cargas distribuidas, como en el Problema 1)
 
 %% 5. imposición de las condiciones de contorno
 U_quest = zeros(n_grados_libertad, 1); % Vector de desplazamientos nodales globales
