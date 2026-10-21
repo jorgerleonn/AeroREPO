@@ -113,15 +113,16 @@ for e = 1:n_elementos
     nB = conectividad_n(e, 2);
 
     if ismember(e, [4 5 6])
-        q_med = 0;
+        qA = 0; qB = 0;
     else
-        z_med = 0.5 * (c_nod(nA, 3) + c_nod(nB, 3)); % centroide del elemento segun Z
-        q_med = q0x * z_med / L;                     % valor de q0x*z/L en el centroide
+        qA = q0x * c_nod(nA,3)/L; % q0x*z/L en el nodo 1 del elemento
+        qB = q0x * c_nod(nB,3)/L; % q0x*z/L en el nodo 2 del elemento
     end
-    w_med = [q_med; 0; 0]; % carga uniforme (global) en el elemento e
+    wA = [qA; 0; 0]; % carga por unidad de longitud (global) en nodo 1
+    wB = [qB; 0; 0]; % carga por unidad de longitud (global) en nodo 2
 
     Re = Te(1:3, 1:3, e); % bloque de rotacion global -> local del elemento e
-    f_loc = cargas_dist_elem(Re, Le(e), w_med, w_med);
+    f_loc = cargas_dist_elem(Re, Le(e), wA, wB);
     Fneq_ele(:, e) = f_loc;
 
     gdl_e = conectividad_g(e, :);
@@ -134,7 +135,7 @@ Fn(6*(8-1) + 3)  = -P1; % w (Z) del nodo 8
 Fn(6*(13-1) + 3) = -P2; % w (Z) del nodo 13
 F_total = Fn + Fneq; % Vector de fuerzas nodales equivalentes globales total (distribuidas + puntuales)
 
-Fneq_quest = Fneq; % vector de fuerzas nodales equivalentes (solo cargas distribuidas, como en el Problema 1)
+Fneq_quest = F_total; % vector de fuerzas nodales equivalentes (distribuidas + puntuales P1 y P2)
 
 %% 5. imposición de las condiciones de contorno
 U_quest = zeros(n_grados_libertad, 1); % Vector de desplazamientos nodales globales
@@ -173,9 +174,8 @@ end
 
 % 6.2 fuerzas de reacción en SPCs
 F_int = K_quest * U_quest; % Fuerzas internas globales de la estructura
-FR1_quest  = F_int(1:6)    - F_total(1:6);    % Reacciones en el apoyo 1 (nodo 1)
-FR2_quest  = F_int(97:102) - F_total(97:102); % Reacciones en el apoyo 2 (nodo 17)
-FR12_quest = F_int(67:72)  - F_total(67:72);  % Reacciones en el apoyo n12 (auxiliar)
+FR1_quest = F_int(1:6);    % Reacciones en el apoyo 1 (nodo 1)
+FR2_quest = F_int(97:102); % Reacciones en el apoyo 2 (nodo 17)
 
 % 6.4 fuerzas en el elemento en coordenadas locales
 F_ele = zeros(12, n_elementos); % Fuerzas nodales de cada elemento en ejes globales
@@ -183,7 +183,7 @@ Fe_loc = zeros(12, n_elementos); % Fuerzas nodales de cada elemento en ejes loca
 for e = 1:n_elementos
     gdl_e = conectividad_g(e, :); % Grados de libertad del elemento e
     u_e = U_quest(gdl_e); % Desplazamientos del elemento en ejes globales
-    F_ele(:, e) = K_ele(:,:,e) * u_e; % Fuerzas nodales del elemento (globales) debidas a la rigidez
+    F_ele(:, e) = K_ele(:,:,e) * u_e; % Fuerzas nodales totales del elemento (globales)
     Fe_loc(:, e) = Te(:,:,e) * F_ele(:, e); % Fuerzas nodales del elemento en ejes locales
 end
 
